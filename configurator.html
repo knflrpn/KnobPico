@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KnobPico Configurator</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+      background: #f5f5f5;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+      margin-bottom: 18px;
+    }
+
+    h1 { margin: 0 0 8px 0; color: #222; }
+    h2 { margin: 0 0 10px 0; font-size: 1.15rem; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+    h3 { margin: 10px 0 8px 0; font-size: 1.05rem; }
+
+    #status { font-weight: 600; color: #555; margin: 10px 0 14px 0; }
+
+    .row { display: flex; gap: 14px; flex-wrap: wrap; }
+    .col { flex: 1 1 320px; min-width: 280px; }
+
+    label { display: block; font-size: 0.92rem; color: #333; margin: 10px 0 6px 0; }
+
+    input[type="number"], input[type="text"], textarea, select {
+      width: 100%;
+      padding: 10px;
+      font-size: 0.95rem;
+      box-sizing: border-box;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    textarea { min-height: 66px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    button {
+      background: #0b5ed7;
+      color: white;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+
+    button:hover { background: #0a53be; }
+    button:disabled { background: #c9c9c9; cursor: not-allowed; }
+
+    button.success { background: #198754; }
+    button.success:hover { background: #157347; }
+
+    button.danger { background: #dc3545; }
+    button.danger:hover { background: #bb2d3b; }
+
+    .muted { color: #666; font-size: 0.9rem; line-height: 1.35; }
+
+    pre {
+      background: #1f1f1f;
+      color: #c9f5b1;
+      padding: 14px;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 0.88rem;
+      min-height: 150px;
+      margin: 0;
+      white-space: pre-wrap;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      background: #f0f0f0;
+      font-size: 0.85rem;
+      color: #444;
+      margin-left: 8px;
+    }
+
+    .color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    @media (max-width: 900px) { .color-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .color-cell {
+      border: 1px solid #eee;
+      padding: 10px;
+      border-radius: 10px;
+      background: #fafafa;
+    }
+
+    input[type="color"] {
+      width: 100%;
+      height: 40px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .kbd {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>KnobPico Configurator</h1>
+    <div id="status">Status: Disconnected</div>
+    <div class="actions">
+      <button id="btnConnect">Connect Device</button>
+      <button id="btnGetInfo" disabled>Get Info</button>
+      <button id="btnWrite" class="success" disabled>Write Config</button>
+      <button id="btnDefaults" class="danger" disabled>Restore Factory Defaults</button>
+      <span class="pill">Report ID 3</span>
+    </div>
+    <div id="deviceDetails" style="margin-top:10px; font-size:0.9rem;"></div>
+  </div>
+
+  <div class="card">
+    <h2>General Settings (Wheel + Timing)</h2>
+    <div class="row">
+      <div class="col">
+        <label for="debounceMs">Button debounce (ms)</label>
+        <input id="debounceMs" type="number" min="0" max="2000" value="10" />
+      </div>
+      <div class="col">
+        <label for="longPressMs">Long press threshold (ms)</label>
+        <input id="longPressMs" type="number" min="0" max="5000" value="400" />
+      </div>
+      <div class="col">
+        <label for="scrollDiv">Wheel scroll divider</label>
+        <input id="scrollDiv" type="number" min="1" max="255" value="20" />
+        <div class="muted">Higher values = fewer scroll events per rotation.</div>
+      </div>
+      <div class="col">
+        <label for="scrollDir">Wheel direction</label>
+        <select id="scrollDir">
+          <option value="-1">Inverted (-1)</option>
+          <option value="1" selected>Normal (+1)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Buttons, Macros, and LEDs</h2>
+
+    <div class="muted" style="margin-bottom:12px;">
+      Macro syntax supports modifiers using braces, e.g. <span class="kbd">{CTRL+C}</span>, <span class="kbd">{ALT+TAB}</span>, <span class="kbd">{SHIFT+F10}</span>.
+      Plain text outside braces will be typed as keystrokes. Examples: <span class="kbd">Hello</span>, <span class="kbd">Hello {ENTER}</span>, <span class="kbd">{CTRL+SHIFT+S}</span>.
+    </div>
+
+    <div class="row">
+      <div class="col card" style="background:#fff;">
+        <h3>Left Button</h3>
+        <label for="b0Short">Short press macro <span class="pill">Macro ID 1</span></label>
+        <textarea id="b0Short"></textarea>
+
+        <label for="b0Long">Long press macro <span class="pill">Macro ID 2</span></label>
+        <textarea id="b0Long"></textarea>
+
+        <h3>LED</h3>
+        <label for="b0PressColor">Press color</label>
+        <input id="b0PressColor" type="color" value="#ffffff" />
+
+        <div class="row">
+          <div class="col">
+            <label for="b0Fade">Fade time (ms)</label>
+            <input id="b0Fade" type="number" min="0" max="10000" value="1000" />
+          </div>
+          <div class="col">
+            <label for="b0SeqLen">Sequence length</label>
+            <input id="b0SeqLen" type="number" min="0" max="8" value="2" />
+          </div>
+        </div>
+
+        <label>Sequence colors (Step 1..8)</label>
+        <div class="color-grid" id="b0SeqGrid"></div>
+      </div>
+
+      <div class="col card" style="background:#fff;">
+        <h3>Middle Button</h3>
+        <label for="b1Short">Short press macro <span class="pill">Macro ID 3</span></label>
+        <textarea id="b1Short"></textarea>
+
+        <label for="b1Long">Long press macro <span class="pill">Macro ID 4</span></label>
+        <textarea id="b1Long"></textarea>
+
+        <h3>LED</h3>
+        <label for="b1PressColor">Press color</label>
+        <input id="b1PressColor" type="color" value="#ffffff" />
+
+        <div class="row">
+          <div class="col">
+            <label for="b1Fade">Fade time (ms)</label>
+            <input id="b1Fade" type="number" min="0" max="10000" value="800" />
+          </div>
+          <div class="col">
+            <label for="b1SeqLen">Sequence length</label>
+            <input id="b1SeqLen" type="number" min="0" max="8" value="2" />
+          </div>
+        </div>
+
+        <label>Sequence colors (Step 1..8)</label>
+        <div class="color-grid" id="b1SeqGrid"></div>
+      </div>
+
+      <div class="col card" style="background:#fff;">
+        <h3>Right Button</h3>
+        <label for="b2Short">Short press macro <span class="pill">Macro ID 5</span></label>
+        <textarea id="b2Short"></textarea>
+
+        <label for="b2Long">Long press macro <span class="pill">Macro ID 6</span></label>
+        <textarea id="b2Long"></textarea>
+
+        <h3>LED</h3>
+        <label for="b2PressColor">Press color</label>
+        <input id="b2PressColor" type="color" value="#ffffff" />
+
+        <div class="row">
+          <div class="col">
+            <label for="b2Fade">Fade time (ms)</label>
+            <input id="b2Fade" type="number" min="0" max="10000" value="1200" />
+          </div>
+          <div class="col">
+            <label for="b2SeqLen">Sequence length</label>
+            <input id="b2SeqLen" type="number" min="0" max="8" value="2" />
+          </div>
+        </div>
+
+        <label>Sequence colors (Step 1..8)</label>
+        <div class="color-grid" id="b2SeqGrid"></div>
+      </div>
+    </div>
+
+    <div class="muted" style="margin-top:10px;">
+      Notes:
+      <ul>
+        <li>Each macro is limited to 16 steps on the device firmware.</li>
+        <li>This configurator automatically inserts a short key-release step after each key press.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Communication Log</h2>
+    <pre id="log">Waiting for connection...</pre>
+  </div>
+
+<script>
+  // --- Constants ---
+  const VENDOR_ID = 0xFEED;
+  const PRODUCT_ID = 0x1187;
+  const REPORT_ID = 3;
+  const PACKET_SIZE = 63;
+  const PAYLOAD_SIZE = 56;
+
+  const CFG_MAGIC = 0x424B4E50; // "BKNP"
+  const CFG_VERSION = 0x0001;
+
+  const OP = { GET_INFO: 0x01, READ: 0x02, WRITE: 0x03, COMMIT: 0x04, LOAD_DEFAULTS: 0x05 };
+  const TLV = { GLOBAL: 0x0001, BUTTON: 0x0100, MACRO: 0x0200, LED: 0x0300 };
+
+  // Modifier bits (USB HID keyboard modifier byte)
+  const MOD_CTRL  = 0x01;
+  const MOD_SHIFT = 0x02;
+  const MOD_ALT   = 0x04;
+  const MOD_GUI   = 0x08;
+
+  // Macro timing (ms)
+  const PRESS_MS = 30;
+  const GAP_MS = 10;
+
+  // Button/macro ID plan (fixed mapping for simplicity)
+  const BUTTON_PLAN = [
+    { btnId: 0, name: 'Left',   shortMacroId: 1, longMacroId: 2 },
+    { btnId: 1, name: 'Middle', shortMacroId: 3, longMacroId: 4 },
+    { btnId: 2, name: 'Right',  shortMacroId: 5, longMacroId: 6 },
+  ];
+
+  // --- HID Keycodes (subset + common specials) ---
+  // Letters & digits match USB HID usage IDs.
+  const KEYMAP_CHAR = {
+    'a': 4,  'b': 5,  'c': 6,  'd': 7,  'e': 8,  'f': 9,  'g': 10, 'h': 11, 'i': 12, 'j': 13,
+    'k': 14, 'l': 15, 'm': 16, 'n': 17, 'o': 18, 'p': 19, 'q': 20, 'r': 21, 's': 22, 't': 23,
+    'u': 24, 'v': 25, 'w': 26, 'x': 27, 'y': 28, 'z': 29,
+    '1': 30, '2': 31, '3': 32, '4': 33, '5': 34, '6': 35, '7': 36, '8': 37, '9': 38, '0': 39,
+    ' ': 44,
+    '-': 45, '=': 46, '[': 47, ']': 48, '\\': 49,
+    ';': 51, "'": 52, '`': 53,
+    ',': 54, '.': 55, '/': 56,
+  };
+
+  const KEYNAME_TO_CODE = {
+    'ENTER': 40,
+    'RETURN': 40,
+    'ESC': 41,
+    'ESCAPE': 41,
+    'BACKSPACE': 42,
+    'TAB': 43,
+    'SPACE': 44,
+    'DELETE': 76,
+    'DEL': 76,
+    'INSERT': 73,
+    'HOME': 74,
+    'END': 77,
+    'PAGEUP': 75,
+    'PAGEDOWN': 78,
+    'PGUP': 75,
+    'PGDN': 78,
+    'RIGHT': 79,
+    'LEFT': 80,
+    'DOWN': 81,
+    'UP': 82,
+    'CAPSLOCK': 57,
+    'F1': 58, 'F2': 59, 'F3': 60, 'F4': 61, 'F5': 62, 'F6': 63,
+    'F7': 64, 'F8': 65, 'F9': 66, 'F10': 67, 'F11': 68, 'F12': 69,
+  };
+
+  // Shifted characters that live on the same physical key
+  const SHIFTED_CHAR = {
+    '!': { base: '1' }, '@': { base: '2' }, '#': { base: '3' }, '$': { base: '4' }, '%': { base: '5' },
+    '^': { base: '6' }, '&': { base: '7' }, '*': { base: '8' }, '(': { base: '9' }, ')': { base: '0' },
+    '_': { base: '-' }, '+': { base: '=' },
+    '{': { base: '[' }, '}': { base: ']' },
+    '|': { base: '\\' },
+    ':': { base: ';' }, '"': { base: "'" },
+    '~': { base: '`' },
+    '<': { base: ',' }, '>': { base: '.' }, '?': { base: '/' },
+  };
+
+  const CODE_TO_KEYNAME = (() => {
+    const inv = {};
+    for (const [k, v] of Object.entries(KEYMAP_CHAR)) inv[v] = k;
+    for (const [k, v] of Object.entries(KEYNAME_TO_CODE)) inv[v] = k;
+    return inv;
+  })();
+
+  // --- State ---
+  let device = null;
+  let currentConfigLen = 0;
+  let cachedConfigBlob = null;
+
+  // --- UI helpers ---
+  const log = (msg) => {
+    const el = document.getElementById('log');
+    el.innerText = `[${new Date().toLocaleTimeString()}] ${msg}\n` + el.innerText;
+  };
+
+  const setConnectedUI = (connected, msg) => {
+    document.getElementById('status').innerText = `Status: ${msg}`;
+    document.getElementById('btnGetInfo').disabled = !connected;
+//    document.getElementById('btnRefresh').disabled = !connected;
+    document.getElementById('btnDefaults').disabled = !connected;
+    document.getElementById('btnWrite').disabled = !connected;
+    document.getElementById('btnConnect').style.display = connected ? 'none' : 'inline-block';
+  };
+
+  // --- CRC32 ---
+  const crc32 = (r) => {
+    for (var a, o = [], c = 0; c < 256; c++) {
+      a = c;
+      for (var f = 0; f < 8; f++) a = 1 & a ? 3988292384 ^ a >>> 1 : a >>> 1;
+      o[c] = a;
+    }
+    for (var n = -1, t = 0; t < r.length; t++) n = n >>> 8 ^ o[255 & (n ^ r[t])];
+    return (-1 ^ n) >>> 0;
+  };
+
+  // --- LED UI builder ---
+  function initLedGrid(gridId, defaults) {
+    const grid = document.getElementById(gridId);
+    grid.innerHTML = '';
+    for (let i = 0; i < 8; i++) {
+      const wrap = document.createElement('div');
+      wrap.className = 'color-cell';
+
+      const lbl = document.createElement('div');
+      lbl.className = 'muted';
+      lbl.style.marginBottom = '6px';
+      lbl.innerText = `Step ${i + 1}`;
+
+      const c = document.createElement('input');
+      c.type = 'color';
+      c.id = `${gridId}_c${i}`;
+      c.value = defaults?.[i] || '#000000';
+
+      wrap.appendChild(lbl);
+      wrap.appendChild(c);
+      grid.appendChild(wrap);
+    }
+  }
+
+  initLedGrid('b0SeqGrid', ['#000032', '#0064c8']);
+  initLedGrid('b1SeqGrid', ['#320032', '#960096']);
+  initLedGrid('b2SeqGrid', ['#001400', '#009600']);
+
+  // --- WebHID logic ---
+  async function connect() {
+    try {
+      const devices = await navigator.hid.requestDevice({ filters: [{ vendorId: VENDOR_ID, productId: PRODUCT_ID }] });
+      if (devices.length === 0) return;
+      device = devices[0];
+      await device.open();
+      setConnectedUI(true, `Connected to ${device.productName}`);
+      log('Device opened.');
+      await refreshFromDevice();
+    } catch (err) {
+      log(`Error: ${err.message}`);
+    }
+  }
+
+  async function sendCommand(opCode, offset = 0, payloadBytes = [], requestLen = null) {
+    if (!device) return null;
+
+    const buffer = new Uint8Array(PACKET_SIZE);
+    const view = new DataView(buffer.buffer);
+
+    // Layout firmware expects for feature report payload:
+    // [OP, SEQ, STAT, OFF_L, OFF_H, LEN, FLAGS, PAYLOAD...]
+    buffer[0] = opCode;
+    buffer[1] = 1;
+    buffer[2] = 0;
+    view.setUint16(3, offset, true);
+
+    buffer[5] = (requestLen !== null) ? requestLen : payloadBytes.length;
+    buffer[6] = 0;
+
+    for (let i = 0; i < payloadBytes.length; i++) buffer[7 + i] = payloadBytes[i];
+
+    await device.sendFeatureReport(REPORT_ID, buffer);
+    const res = await device.receiveFeatureReport(REPORT_ID);
+    return res;
+  }
+
+  async function getInfo() {
+    const view = await sendCommand(OP.GET_INFO);
+    if (!view) return null;
+
+    const status = view.getUint8(3);
+    if (status !== 0) {
+      log(`Error Status: ${status}`);
+      return null;
+    }
+
+    const magic = view.getUint32(8, true);
+    const version = view.getUint16(12, true);
+    const size = view.getUint16(14, true);
+
+    const isMagicValid = magic === CFG_MAGIC;
+    currentConfigLen = size;
+
+    document.getElementById('deviceDetails').innerHTML = `
+      Identifier: ${isMagicValid ? "OK" : "INVALID"}<br>
+      Config Size: ${size} bytes<br>
+      Version: 0x${version.toString(16)}
+    `;
+
+    return { magic, version, size, isMagicValid };
+  }
+
+  async function readConfigBlob(totalLen) {
+    if (!device) return null;
+
+    const blob = new Uint8Array(totalLen);
+    let offset = 0;
+
+    while (offset < totalLen) {
+      const chunkLen = Math.min(PAYLOAD_SIZE, totalLen - offset);
+      const view = await sendCommand(OP.READ, offset, [], chunkLen);
+      const status = view.getUint8(3);
+      if (status !== 0) {
+        log(`Read failed at offset ${offset}. Status: ${status}`);
+        return null;
+      }
+
+      const returnedLen = view.getUint8(6);
+      const raw = new Uint8Array(view.buffer);
+      const payload = raw.slice(8, 8 + returnedLen);
+      blob.set(payload, offset);
+      offset += returnedLen;
+    }
+
+    return blob;
+  }
+
+  function parseTLVs(blob) {
+    const view = new DataView(blob.buffer);
+    const totalLen = view.getUint16(6, true);
+    const tlvs = [];
+    let ptr = 12;
+
+    while (ptr + 4 <= totalLen) {
+      const type = view.getUint16(ptr, true);
+      const len = view.getUint16(ptr + 2, true);
+      const end = ptr + 4 + len;
+      if (end > totalLen) break;
+
+      const raw = blob.slice(ptr, end);
+      const val = blob.slice(ptr + 4, end);
+      tlvs.push({ type, len, val, raw, start: ptr, end });
+      ptr = end;
+    }
+
+    return tlvs;
+  }
+
+  // --- Macro parsing / encoding ---
+  function charToKeySpec(ch) {
+    if (ch === '\n') return { mod: 0, key: KEYNAME_TO_CODE.ENTER };
+
+    if (SHIFTED_CHAR[ch]) {
+      const base = SHIFTED_CHAR[ch].base;
+      const key = KEYMAP_CHAR[base] || 0;
+      return { mod: MOD_SHIFT, key };
+    }
+
+    if (ch >= 'A' && ch <= 'Z') {
+      const key = KEYMAP_CHAR[ch.toLowerCase()] || 0;
+      return { mod: MOD_SHIFT, key };
+    }
+
+    const key = KEYMAP_CHAR[ch] || 0;
+    return { mod: 0, key };
+  }
+
+  function normalizeKeyName(s) {
+    return (s || '').trim().toUpperCase();
+  }
+
+  function keyNameToKeycode(keyName) {
+    const name = normalizeKeyName(keyName);
+    if (!name) return 0;
+
+    // single-char letters/digits
+    if (name.length === 1) {
+      const ch = name.toLowerCase();
+      if (KEYMAP_CHAR[ch]) return KEYMAP_CHAR[ch];
+    }
+
+    return KEYNAME_TO_CODE[name] || 0;
+  }
+
+  function parseBraceToken(token) {
+    // token like "CTRL+SHIFT+S" or "ALT+TAB" or "ENTER"
+    const parts = token.split('+').map(p => p.trim()).filter(Boolean);
+
+    let mod = 0;
+    let keyPart = null;
+
+    for (const p of parts) {
+      const u = p.toUpperCase();
+      if (u === 'CTRL' || u === 'CONTROL') mod |= MOD_CTRL;
+      else if (u === 'SHIFT') mod |= MOD_SHIFT;
+      else if (u === 'ALT' || u === 'OPTION') mod |= MOD_ALT;
+      else if (u === 'GUI' || u === 'WIN' || u === 'CMD' || u === 'META') mod |= MOD_GUI;
+      else keyPart = p;
+    }
+
+    const keycode = keyNameToKeycode(keyPart);
+    return { mod, key: keycode };
+  }
+
+function scriptToMacroSteps(script) {
+  const bytes = [];
+  if (!script) return bytes;
+
+  let lastKeycode = null;
+
+  function emitKey(spec) {
+    if (!spec || !spec.key) return;
+
+    // Only need an empty step if the same physical key is being pressed again
+    // (otherwise changing the report implicitly releases the prior key)
+    if (lastKeycode !== null && spec.key === lastKeycode) {
+      pushReleaseStep(bytes, GAP_MS);
+    }
+
+    pushPressStep(bytes, spec.mod, spec.key, PRESS_MS);
+    lastKeycode = spec.key;
+  }
+
+  let i = 0;
+  while (i < script.length) {
+    const ch = script[i];
+
+    if (ch === '{') {
+      const end = script.indexOf('}', i + 1);
+      if (end === -1) {
+        emitKey(charToKeySpec(ch));
+        i++;
+        continue;
+      }
+
+      const token = script.slice(i + 1, end).trim();
+      emitKey(parseBraceToken(token));
+      i = end + 1;
+      continue;
+    }
+
+    if (ch === '\\') {
+      const next = script[i + 1];
+      if (next === '{' || next === '}' || next === '\\') {
+        emitKey(charToKeySpec(next));
+        i += 2;
+        continue;
+      }
+    }
+
+    emitKey(charToKeySpec(ch));
+    i++;
+  }
+
+  return bytes;
+}
+
+
+function pushPressStep(bytes, mod, keycode, durMs = PRESS_MS) {
+  bytes.push(mod & 0xFF);
+  bytes.push(keycode & 0xFF);
+  bytes.push(durMs & 0xFF);
+  bytes.push((durMs >> 8) & 0xFF);
+}
+
+function pushReleaseStep(bytes, durMs = GAP_MS) {
+  bytes.push(0);
+  bytes.push(0);
+  bytes.push(durMs & 0xFF);
+  bytes.push((durMs >> 8) & 0xFF);
+}
+
+  function macroValFromScript(macroId, script) {
+    const steps = scriptToMacroSteps(script);
+    // Max length is 32 steps
+    const stepCount = Math.min(32, Math.floor(steps.length / 4));
+    const body = steps.slice(0, stepCount * 4);
+    return new Uint8Array([macroId & 0xFF, stepCount & 0xFF, ...body]);
+  }
+
+  function keyToPrintableChar(mod, keycode) {
+    // Only decode as a printable character when no ctrl/alt/gui is used.
+    if (mod & (MOD_CTRL | MOD_ALT | MOD_GUI)) return null;
+
+    const base = CODE_TO_KEYNAME[keycode];
+    if (!base) return null;
+
+    // Special keys
+    if (base === 'ENTER' || base === 'RETURN' || base === '\n') return null;
+    if (base === 'SPACE') return ' ';
+    if (base.length !== 1) return null;
+
+    // Letters
+    if (base >= 'a' && base <= 'z') {
+      return (mod & MOD_SHIFT) ? base.toUpperCase() : base;
+    }
+
+    // Digits / punctuation with shift transforms
+    if (!(mod & MOD_SHIFT)) return base;
+
+    // Find shifted representation
+    for (const [shifted, info] of Object.entries(SHIFTED_CHAR)) {
+      if (info.base === base) return shifted;
+    }
+
+    return base;
+  }
+
+  function macroBytesToScript(macroVal) {
+    // Layout: [id(1), count(1), steps...], each step is (mod, key, dur16le)
+    if (!macroVal || macroVal.length < 2) return '';
+    const count = macroVal[1];
+
+    let out = '';
+    for (let i = 0; i < count; i++) {
+      const base = 2 + i * 4;
+      if (base + 3 >= macroVal.length) break;
+
+      const mod = macroVal[base];
+      const key = macroVal[base + 1];
+      if (key === 0) continue; // release steps
+
+      const printable = keyToPrintableChar(mod, key);
+      if (printable !== null) {
+        out += printable;
+        continue;
+      }
+
+      const mods = [];
+      if (mod & MOD_CTRL) mods.push('CTRL');
+      if (mod & MOD_SHIFT) mods.push('SHIFT');
+      if (mod & MOD_ALT) mods.push('ALT');
+      if (mod & MOD_GUI) mods.push('GUI');
+
+      const keyName = CODE_TO_KEYNAME[key] || `KEY_${key}`;
+      const token = `{${[...mods, keyName.toUpperCase()].join('+')}}`;
+
+//      if (out.length > 0 && out[out.length - 1] !== ' ' && out[out.length - 1] !== '\n') out += ' ';
+      if (out.length > 0 && out[out.length - 1] == ' ') out += ' ';
+      else out += token;
+    }
+
+    return out.trimEnd();
+  }
+
+  // --- TLV builders ---
+  function tlvRaw(type, valBytes) {
+    const raw = new Uint8Array(4 + valBytes.length);
+    const dv = new DataView(raw.buffer);
+    dv.setUint16(0, type, true);
+    dv.setUint16(2, valBytes.length, true);
+    raw.set(valBytes, 4);
+    return raw;
+  }
+
+  function rebuildConfigBlob(originalBlob, replacements) {
+    const dv = new DataView(originalBlob.buffer);
+    const originalMagic = dv.getUint32(0, true);
+    const originalVersion = dv.getUint16(4, true);
+
+    const tlvs = parseTLVs(originalBlob);
+
+    const pieces = [];
+    const usedKeys = new Set();
+
+    for (const t of tlvs) {
+      let replaced = false;
+      for (const rep of replacements) {
+        if (rep.match(t)) {
+          pieces.push(rep.raw);
+          usedKeys.add(rep.key);
+          replaced = true;
+          break;
+        }
+      }
+      if (!replaced) pieces.push(t.raw);
+    }
+
+    for (const rep of replacements) {
+      if (!usedKeys.has(rep.key)) pieces.push(rep.raw);
+    }
+
+    const bodyLen = pieces.reduce((a, p) => a + p.length, 0);
+    const totalLen = 12 + bodyLen;
+
+    const out = new Uint8Array(totalLen);
+
+    // Copy body
+    let ptr = 12;
+    for (const part of pieces) {
+      out.set(part, ptr);
+      ptr += part.length;
+    }
+
+    // Header
+    const view = new DataView(out.buffer);
+    view.setUint32(0, originalMagic || CFG_MAGIC, true);
+    view.setUint16(4, originalVersion || CFG_VERSION, true);
+    view.setUint16(6, totalLen, true);
+
+    const crc = crc32(out.slice(12));
+    view.setUint32(8, crc, true);
+
+    return out;
+  }
+
+  // --- UI <-> TLV encoding ---
+  function getU16(id) {
+    const v = parseInt(document.getElementById(id).value, 10);
+    return Number.isFinite(v) ? Math.max(0, Math.min(65535, v)) : 0;
+  }
+
+  function getU8(id) {
+    const v = parseInt(document.getElementById(id).value, 10);
+    return Number.isFinite(v) ? Math.max(0, Math.min(255, v)) : 0;
+  }
+
+  function getI8FromSelect(id) {
+    const v = parseInt(document.getElementById(id).value, 10);
+    return (v === -1) ? -1 : 1;
+  }
+
+  function hexToRgb(hex) {
+    const s = (hex || '#000000').replace('#', '').trim();
+    const r = parseInt(s.slice(0, 2), 16) || 0;
+    const g = parseInt(s.slice(2, 4), 16) || 0;
+    const b = parseInt(s.slice(4, 6), 16) || 0;
+    return { r, g, b };
+  }
+
+  function buildGlobalTlvVal() {
+    // Layout: [debounce(2), long_press(2), scroll_div(1), scroll_dir(1)]
+    const debounce = getU16('debounceMs');
+    const longPress = getU16('longPressMs');
+    const scrollDiv = getU8('scrollDiv');
+    const scrollDir = getI8FromSelect('scrollDir');
+
+    const val = new Uint8Array(6);
+    const dv = new DataView(val.buffer);
+    dv.setUint16(0, debounce, true);
+    dv.setUint16(2, longPress, true);
+    val[4] = scrollDiv & 0xFF;
+    val[5] = (scrollDir & 0xFF); // two's complement works via &
+
+    return val;
+  }
+
+  function buildButtonMapTlvVal(btnId, shortMid, longMid) {
+    // Layout: [btn_id (1), short_mid(1), long_mid(1)]
+    return new Uint8Array([btnId & 0xFF, shortMid & 0xFF, longMid & 0xFF]);
+  }
+
+  function buildLedTlvVal(btnId) {
+    // Layout: [btn_id(1), press_rgb(3), seq_len(1), fade_ms(2), seq_rgb(3*len)]
+    const pressColor = hexToRgb(document.getElementById(`b${btnId}PressColor`).value);
+    const fadeMs = getU16(`b${btnId}Fade`);
+    const seqLen = Math.max(0, Math.min(8, parseInt(document.getElementById(`b${btnId}SeqLen`).value, 10) || 0));
+
+    const seq = [];
+    for (let i = 0; i < 8; i++) {
+      const c = document.getElementById(`b${btnId}SeqGrid_c${i}`).value;
+      const rgb = hexToRgb(c);
+      seq.push(rgb.r & 0xFF, rgb.g & 0xFF, rgb.b & 0xFF);
+    }
+
+    const val = new Uint8Array(7 + (seqLen * 3));
+    val[0] = btnId & 0xFF;
+    val[1] = pressColor.r & 0xFF;
+    val[2] = pressColor.g & 0xFF;
+    val[3] = pressColor.b & 0xFF;
+    val[4] = seqLen & 0xFF;
+
+    const dv = new DataView(val.buffer);
+    dv.setUint16(5, fadeMs, true);
+
+    for (let i = 0; i < seqLen * 3; i++) {
+      val[7 + i] = seq[i] & 0xFF;
+    }
+
+    return val;
+  }
+
+  function setGlobalFromTlv(val) {
+    if (!val || val.length < 6) return;
+    const dv = new DataView(val.buffer, val.byteOffset, val.byteLength);
+    document.getElementById('debounceMs').value = dv.getUint16(0, true);
+    document.getElementById('longPressMs').value = dv.getUint16(2, true);
+    document.getElementById('scrollDiv').value = val[4];
+
+    const dir = (val[5] << 24) >> 24; // sign extend int8
+    document.getElementById('scrollDir').value = (dir === -1) ? '-1' : '1';
+  }
+
+  function setLedFromTlv(btnId, val) {
+    if (!val || val.length < 7) return;
+    const pressHex = `#${[val[1], val[2], val[3]].map(x => x.toString(16).padStart(2, '0')).join('')}`;
+    document.getElementById(`b${btnId}PressColor`).value = pressHex;
+
+    const dv = new DataView(val.buffer, val.byteOffset, val.byteLength);
+    const seqLen = val[4];
+    const fadeMs = dv.getUint16(5, true);
+    document.getElementById(`b${btnId}SeqLen`).value = Math.min(8, seqLen);
+    document.getElementById(`b${btnId}Fade`).value = fadeMs;
+
+    for (let i = 0; i < 8; i++) {
+      const base = 7 + i * 3;
+      const r = (base + 0 < val.length) ? val[base + 0] : 0;
+      const g = (base + 1 < val.length) ? val[base + 1] : 0;
+      const b = (base + 2 < val.length) ? val[base + 2] : 0;
+      const hex = `#${[r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')}`;
+      const el = document.getElementById(`b${btnId}SeqGrid_c${i}`);
+      if (el) el.value = hex;
+    }
+  }
+
+  function setMacrosFromTlv(tlvs) {
+    const macroById = new Map();
+    for (const t of tlvs) {
+      if (t.type !== TLV.MACRO || !t.val || t.val.length < 2) continue;
+      macroById.set(t.val[0], t.val);
+    }
+
+    // Map macro IDs to UI fields
+    const mapping = [
+      { id: 1, el: 'b0Short' },
+      { id: 2, el: 'b0Long' },
+      { id: 3, el: 'b1Short' },
+      { id: 4, el: 'b1Long' },
+      { id: 5, el: 'b2Short' },
+      { id: 6, el: 'b2Long' },
+    ];
+
+    for (const m of mapping) {
+      const val = macroById.get(m.id);
+      if (!val) continue;
+      document.getElementById(m.el).value = macroBytesToScript(val);
+    }
+  }
+
+  async function refreshFromDevice() {
+    const info = await getInfo();
+    if (!info || !info.isMagicValid) {
+      log('Device protocol identifier did not match.');
+      return;
+    }
+
+    log(`Reading current config (${info.size} bytes)...`);
+    const blob = await readConfigBlob(info.size);
+    if (!blob) return;
+
+    const hdr = new DataView(blob.buffer);
+    const totalLen = hdr.getUint16(6, true);
+    const storedCrc = hdr.getUint32(8, true);
+    const calcCrc = crc32(blob.slice(12, totalLen));
+
+    if (storedCrc !== calcCrc) {
+      log(`CRC mismatch (stored=0x${storedCrc.toString(16)}, calc=0x${calcCrc.toString(16)}). Proceeding anyway.`);
+    } else {
+      log(`Config CRC OK (0x${storedCrc.toString(16)}).`);
+    }
+
+    cachedConfigBlob = blob;
+
+    const tlvs = parseTLVs(blob);
+
+    // Global
+    const globalTlv = tlvs.find(t => t.type === TLV.GLOBAL);
+    if (globalTlv) setGlobalFromTlv(globalTlv.val);
+
+    // Macros
+    setMacrosFromTlv(tlvs);
+
+    // LEDs
+    for (const p of BUTTON_PLAN) {
+      const ledTlv = tlvs.find(t => t.type === TLV.LED && t.val && t.val.length >= 1 && t.val[0] === p.btnId);
+      if (ledTlv) setLedFromTlv(p.btnId, ledTlv.val);
+    }
+
+    log('UI updated from device config.');
+  }
+
+  async function writeConfig() {
+    if (!device) return;
+
+    // Ensure we have a baseline
+    if (!cachedConfigBlob || currentConfigLen === 0) {
+      await refreshFromDevice();
+    }
+
+    if (!cachedConfigBlob) {
+      log('No cached config loaded. Try reconnecting.');
+      return;
+    }
+
+    log('Preparing full config update (Globals + 3 Buttons + Wheel + LEDs)...');
+
+    const replacements = [];
+
+    // Global
+    {
+      const val = buildGlobalTlvVal();
+      replacements.push({
+        key: 'global',
+        raw: tlvRaw(TLV.GLOBAL, val),
+        match: (t) => t.type === TLV.GLOBAL,
+      });
+    }
+
+    // Macros for all buttons (6 macros)
+    const macroInputs = [
+      { id: 1, el: 'b0Short' },
+      { id: 2, el: 'b0Long' },
+      { id: 3, el: 'b1Short' },
+      { id: 4, el: 'b1Long' },
+      { id: 5, el: 'b2Short' },
+      { id: 6, el: 'b2Long' },
+    ];
+
+    for (const m of macroInputs) {
+      const script = document.getElementById(m.el).value || '';
+      const val = macroValFromScript(m.id, script);
+      replacements.push({
+        key: `macro_${m.id}`,
+        raw: tlvRaw(TLV.MACRO, val),
+        match: (t) => (t.type === TLV.MACRO && t.val && t.val.length >= 1 && t.val[0] === m.id),
+      });
+    }
+
+    // LEDs (3)
+    for (const p of BUTTON_PLAN) {
+      const val = buildLedTlvVal(p.btnId);
+      replacements.push({
+        key: `led_${p.btnId}`,
+        raw: tlvRaw(TLV.LED, val),
+        match: (t) => (t.type === TLV.LED && t.val && t.val.length >= 1 && t.val[0] === p.btnId),
+      });
+    }
+
+    // Button map TLVs
+    for (const p of BUTTON_PLAN) {
+      const val = buildButtonMapTlvVal(p.btnId, p.shortMacroId, p.longMacroId);
+      replacements.push({
+        key: `btn_${p.btnId}`,
+        raw: tlvRaw(TLV.BUTTON, val),
+        match: (t) => (t.type === TLV.BUTTON && t.val && t.val.length >= 1 && t.val[0] === p.btnId),
+      });
+    }
+
+    const updatedBlob = rebuildConfigBlob(cachedConfigBlob, replacements);
+
+    const view = new DataView(updatedBlob.buffer);
+    const totalLen = view.getUint16(6, true);
+    const crc = view.getUint32(8, true);
+
+    log(`Updated Blob Size: ${totalLen} bytes. CRC: 0x${crc.toString(16)}`);
+
+    // Upload
+    let offset = 0;
+    while (offset < totalLen) {
+      const chunkLen = Math.min(PAYLOAD_SIZE, totalLen - offset);
+      const chunk = updatedBlob.slice(offset, offset + chunkLen);
+
+      const res = await sendCommand(OP.WRITE, offset, chunk);
+      const status = res.getUint8(3);
+      if (status !== 0) {
+        log(`Upload failed at offset ${offset}. Status: ${status}`);
+        return;
+      }
+      offset += chunkLen;
+    }
+
+    // Commit
+    log('Sending COMMIT...');
+    const res = await sendCommand(OP.COMMIT);
+    const status = res.getUint8(3);
+
+    if (status === 0) {
+      log('Config saved successfully.');
+      await refreshFromDevice();
+    } else {
+      log(`Commit failed. Status: ${status}`);
+    }
+  }
+
+  async function loadDefaults() {
+    if (!device) return;
+    await sendCommand(OP.LOAD_DEFAULTS);
+    log('Factory defaults loaded on device.');
+    await refreshFromDevice();
+  }
+
+  // --- Event listeners ---
+  document.getElementById('btnConnect').addEventListener('click', connect);
+  document.getElementById('btnGetInfo').addEventListener('click', getInfo);
+//  document.getElementById('btnRefresh').addEventListener('click', refreshFromDevice);
+  document.getElementById('btnDefaults').addEventListener('click', loadDefaults);
+  document.getElementById('btnWrite').addEventListener('click', writeConfig);
+
+</script>
+</body>
+</html>
