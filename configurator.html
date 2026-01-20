@@ -242,7 +242,8 @@
 			Plain text outside braces will be typed as keystrokes. Examples: <span class="kbd">Hello</span>, <span
 				class="kbd">Hello {ENTER}</span>, <span class="kbd">{CTRL+SHIFT+S}</span>.
 			Duration can be specified inside braces as milliseconds after a colon. Examples: <span class="kbd">{A:250}</span>, <span
-				class="kbd">{ENTER:25}</span>, <span class="kbd">{CTRL+SHIFT+S:100}</span>.
+				class="kbd">{ENTER:25}</span>, <span class="kbd">{CTRL+SHIFT+S:100}</span>.<br>
+			You can use <span class="kbd">{WAIT:500}</span> to insert a delay without pressing any keys.
 		</div>
 
 		<div class="row">
@@ -652,6 +653,11 @@
 				}
 			}
 
+			// Handle WAIT keyword
+			if (content.trim().toUpperCase() === 'WAIT') {
+				return { mod: 0, key: 0, duration, isWait: true };
+			}
+
 			// token like "CTRL+SHIFT+S" or "ALT+TAB" or "ENTER"
 			const parts = content.split('+').map(p => p.trim()).filter(Boolean);
 
@@ -678,15 +684,22 @@
 			let lastKeycode = null;
 
 			function emitKey(spec) {
-				if (!spec || !spec.key) return;
+				// We return if spec is invalid.
+				// However, if it's a WAIT command, spec.key is 0 and spec.isWait is true.
+				if (!spec) return;
+				if (spec.key === 0 && !spec.isWait) return;
 
 				// Only need an empty step if the same physical key is being pressed again
-				if (lastKeycode !== null && spec.key === lastKeycode) {
+				// (And it is not a WAIT command)
+				if (lastKeycode !== null && spec.key === lastKeycode && spec.key !== 0) {
 					pushReleaseStep(bytes, GAP_MS);
 				}
 
-				// Use specific duration if provided, otherwise default constant
-				const dur = spec.duration || PRESS_MS;
+				// Use specific duration if provided, otherwise default constant.
+				// Clamp to uint16 (65535 max)
+				let dur = spec.duration || PRESS_MS;
+				if (dur > 65535) dur = 65535;
+
 				pushPressStep(bytes, spec.mod, spec.key, dur);
 				lastKeycode = spec.key;
 			}
@@ -790,7 +803,17 @@
 				const key = macroVal[base + 1];
 				const dur = macroVal[base + 2] | (macroVal[base + 3] << 8);
 
-				if (key === 0) continue; // release steps
+				if (key === 0) {
+					// This is a wait or a gap. 
+					// If it is simply the standard debounce gap, we ignore it in decoding to keep the UI clean.
+					// If it is a user-defined WAIT (different duration), we show it.
+					if (dur !== GAP_MS) {
+						const token = `{WAIT:${dur}}`;
+						if (out.length > 0 && out[out.length - 1] === ' ') out += ' ';
+						else out += token;
+					}
+					continue;
+				}
 
 				// Check if this step uses standard timing
 				const isStandardTime = (dur === PRESS_MS);
